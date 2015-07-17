@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    </head>
+    <body>
+        <h1>Sparql demo</h1>
+        <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+        <script>
+
+            function executeSparqlQuery( host, query, callback )
+            {
+                var url_params = "?utf8=%E2%9C%93&commit=Run+Query&format=json&query=";
+
+                jQuery.ajax({
+                    url: host + url_params + encodeURIComponent( query )
+                })
+                .done(function( data ) {
+                    callback( data );
+                })
+                .error(function(error) {
+                    callback( [ 'Sparql query error', error ] );
+                });
+            }
+
+            var host, query;
+
+            host = "http://opendatacommunities.org/sparql";
+            query="\
+PREFIX dcterms: <http://purl.org/dc/terms/>\
+PREFIX owl: <http://www.w3.org/2002/07/owl#>\
+PREFIX qb: <http://purl.org/linked-data/cube#>\
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\
+\
+SELECT DISTINCT *\
+\
+WHERE {\
+?s ?p ?o\
+}\
+\
+LIMIT 30";
+            executeSparqlQuery( host, query, function( data ) { console.debug( data ); } );
+
+
+            host = "http://dbpedia.org/sparql";
+            query = "PREFIX dbpedia-owl: <http://dbpedia.org/ontology/>\
+PREFIX dbpprop: <http://dbpedia.org/property/>\
+PREFIX dbres: <http://dbpedia.org/resource/>\
+\
+DESCRIBE ?x WHERE {\
+ ?x dbpedia-owl:family dbres:Crambidae.\
+ ?x dbpedia-owl:binomialAuthority dbres:Johan_Christian_Fabricius.\
+ }\
+\
+limit 10";
+            executeSparqlQuery( host, query, function( data ) { console.debug( data ); } );
+
+
+        </script>
+    </body>
+</html>
