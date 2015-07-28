@@ -1,64 +1,184 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+        <meta charset="utf-8" />
+        <title>Leaflet DCLG demo</title>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no, width=device-width">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.css" />
+        <style>
+            html, body {
+                height: 100%;
+                padding: 0;
+                margin: 0;
+                font-family: sans-serif;
+                font-size: small;
+            }
+
+            #map {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
     </head>
     <body>
-        <h1>Sparql demo</h1>
+        <div id="map"></div>
         <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-        <script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.3.6/proj4.js"></script>
+        <script src="assets/proj4leaflet.js"></script>
 
-            function executeSparqlQuery( host, query, callback )
+        <script>
+            var callbackDelay = 25; // GeoJson callback delay in milliseconds
+
+
+            function getMap() {
+                console.debug( 'getting map...' );
+                return new L.Map('map', {
+                    layers: [
+                        new L.TileLayer(
+                            'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            {
+                                attribution: 'Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
+                            }
+                        )
+                    ]
+                });
+            }
+
+
+            function addBoltonBoundary( boundaries )
             {
-                var url_params = "?utf8=%E2%9C%93&commit=Run+Query&format=json&query=";
+                getJsonpObject(
+                    'http://maps.communities.gov.uk/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=admingeo:ONS_LAD_DEC_2013_GB_WGS84&outputFormat=text/javascript&cql_filter=LAD13CD=%27E08000001%27&foobarbaz=?',
+                    'parseResponse',
+                    function( data ) {
+                        L.geoJson(
+                            data,
+                            {
+                                onEachFeature: function (feature, marker) {
+                                    marker.bindPopup( L.Util.template( '{LAD13NM}', feature.properties ) );
+                                }
+                            }
+                        ).addTo( boundaries );
+                    }
+                );
+            }
+
+
+            function executeSparqlQuery( host, query, callback, callbackParams )
+            {
+                var url_params = "?format=json&query=";
 
                 jQuery.ajax({
                     url: host + url_params + encodeURIComponent( query )
                 })
-                .done(function( data ) {
-                    callback( data );
+                .done(function( response ) {
+                    callback( response, callbackParams );
                 })
                 .error(function(error) {
-                    callback( [ 'Sparql query error', error ] );
+                    callback( [ 'Sparql query error', error ], callbackParams );
                 });
             }
 
-            var host, query;
 
-            host = "http://opendatacommunities.org/sparql";
-            query="\
-PREFIX dcterms: <http://purl.org/dc/terms/>\
-PREFIX owl: <http://www.w3.org/2002/07/owl#>\
-PREFIX qb: <http://purl.org/linked-data/cube#>\
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>\
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\
-\
-SELECT DISTINCT *\
-\
-WHERE {\
-?s ?p ?o\
-}\
-\
-LIMIT 30";
-            executeSparqlQuery( host, query, function( data ) { console.debug( data ); } );
+            function addGreaterManchesterLocalAuthoritiesBoundaries( sparqlResponse, params ) {
+
+                var delay = 0;
+
+                // Iterate through the items in sparql query response.
+                sparqlResponse.results.bindings.forEach( function ( localAuthority ) {
+
+                    delay += callbackDelay;
+
+                    setTimeout(
+                        function()  {
+                            // Get the jsonp object from the url in the current sparql response item.
+                            getJsonpObject(
+                                localAuthority.jsonpBoundaryUrl.value,
+                                params.jsonpCallbackName,
+                                function (data) {
+
+                                    // Create a geojson layer from the jsonp object and add it to the boundaries collection.
+                                    L.geoJson(
+                                        data,
+                                        {
+                                            onEachFeature: function (feature, marker) {
+                                                marker.bindPopup( L.Util.template( '{LAD13NM}', feature.properties ) );
+                                            }
+                                        }
+                                    ).addTo( params.boundaries );
+                                }
+                            );
+                        },
+                        delay
+                    );
+                } );
+            }
 
 
-            host = "http://dbpedia.org/sparql";
-            query = "PREFIX dbpedia-owl: <http://dbpedia.org/ontology/>\
-PREFIX dbpprop: <http://dbpedia.org/property/>\
-PREFIX dbres: <http://dbpedia.org/resource/>\
+            function getJsonpObject( url, jsonpCallbackName, successFunction, params ) {
+                jQuery.ajax(
+                    {
+                        type: 'GET',
+                        url: url,
+                        async: false,
+                        contentType: "application/json",
+                        dataType: 'jsonp',
+                        jsonp: jsonpCallbackName,
+                        jsonpCallback: jsonpCallbackName,
+                        success: successFunction
+                    }
+                );
+            }
+
+            // "Main"...
+            ( function ()
+             {
+                 var boundaries = L.featureGroup();
+                 var map = getMap();
+
+                 if ( addboltonBoundary = false )
+                 {
+                     addBoltonBoundary( boundaries );
+                 }
+                 else // Add all GM LA boundaries obtained from Sparql query.
+                 {
+                     var host = "http://opendatacommunities.org/sparql";
+                     var query="\
+PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> \
+PREFIX gov: <http://opendatacommunities.org/def/local-government/> \
+PREFIX spatial: <http://data.ordnancesurvey.co.uk/ontology/spatialrelations/> \
 \
-DESCRIBE ?x WHERE {\
- ?x dbpedia-owl:family dbres:Crambidae.\
- ?x dbpedia-owl:binomialAuthority dbres:Johan_Christian_Fabricius.\
- }\
-\
-limit 10";
-            executeSparqlQuery( host, query, function( data ) { console.debug( data ); } );
+select ?jsonpBoundaryUrl \
+where { \
+<http://opendatacommunities.org/id/metropolitan-county/greater-manchester> gov:district ?districtCouncil . \
+?districtCouncil a <http://opendatacommunities.org/def/local-government/LocalAuthority> . \
+?district gov:isGovernedBy ?districtCouncil . \
+?district <http://opendatacommunities.org/def/geography#boundaryAsJSONP> ?jsonpBoundaryUrl . \
+}";
+
+                     executeSparqlQuery(
+                         host,
+                         query,
+                         addGreaterManchesterLocalAuthoritiesBoundaries,
+                         {
+                             boundaries: boundaries,
+                             jsonpCallbackName: 'parseResponse'
+                         }
+                     );
+                 }
 
 
+                 // Setting bounds from a layer group fails when the callbacks that push
+                 // layers on to the layer group have not yet executed.
+                 setTimeout(
+                     function()  {
+                         boundaries.addTo( map );
+                         map.fitBounds( boundaries.getBounds() );
+                     },
+                     callbackDelay * 15
+                 );
+             })();
         </script>
     </body>
 </html>
