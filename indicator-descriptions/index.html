@@ -91,14 +91,7 @@ footer.content-info {color:#8C8989;background:#282a2b;padding: 18px 10px 18px;}f
 	<li class="menu-business-growth"><a title="Business &amp; Growth" href="http://www.gmpag.org/topic/business-growth/"><span class="glyphicon fa fa-rocket"></span>&nbsp;Business &amp; Growth</a></li>
 </ul>
 </li>
-<li class="active menu-poverty-monitor dropdown"><a title="Poverty monitor" href="#" data-toggle="dropdown" class="dropdown-toggle">Poverty monitor <span class="caret"></span></a>
-<ul role="menu" class=" dropdown-menu">
-  	<li class="menu-available-indicators"><a title="Available indicators" href="/poverty-monitor/indicator-descriptions/all">Available indicators</a></li>
-	<li class="menu-local-authority-maps-and-graphs"><a title="Local authority maps and graphs" href="/poverty-monitor/indicator-visualisations/?level=local-authority-and-region">Local authority maps and graphs</a></li>
-	<li class="menu-detailed-maps"><a title="Detailed maps" href="/poverty-monitor/indicator-visualisations/?level=lsoa">Detailed maps</a></li>
-	<li class="active menu-november-2014-report active"><a title="November 2014 report" href="/poverty-in-gm-november-2014/"><span class="glyphicon Poverty in Greater Manchester &#8211; November 2014"></span>&nbsp;November 2014 report</a></li>
-</ul>
-</li>
+        <li class="active menu-poverty-monitor"><a title="Poverty monitor" href="/poverty-monitor/">Poverty monitor</a></li>
 <li class="menu-news"><a title="News" href="http://www.gmpag.org/topic/projects/">News</a></li>
 <li class="menu-events"><a title="Events" href="http://www.gmpag.org/events/">Events</a></li>
 <li class="menu-about dropdown"><a title="About" href="#" data-toggle="dropdown" class="dropdown-toggle">About <span class="caret"></span></a>
@@ -130,36 +123,11 @@ footer.content-info {color:#8C8989;background:#282a2b;padding: 18px 10px 18px;}f
 
 
 
-      <div id="indicator-description" class="wrap main-section container" role="document">
+      <div id="indicator-details" class="wrap main-section container" role="document">
 
           <h1 id="indicator-name">...loading indicator information...</h1>
 
-          <h2>What is this indicator?</h2>
-          <div class="what-is-this-indicator"> </div>
-
-          <h2>How is the indicator calculated?</h2>
-          <div class="how-is-the-indicator-calculated"> </div>
-
-          <h2>What unit is used?</h2>
-          <div class="what-unit-is-used"> </div>
-
-          <h2>When was the latest data measured?</h2>
-          <div class="when-was-the-latest"> </div>
-
-          <h2>What date range of data is available?</h2>
-          <div class="what-date-range"> </div>
-
-          <h2>How often is the data be updated?</h2>
-          <div class="how-often"> </div>
-
-          <h2>What geographic areas does the indicator cover?</h2>
-          <div class="what-geographic-areas"> </div>
-
-          <h2>What else should I know?</h2>
-          <div class="what-else-should-i-know"> </div>
-
-          <h2>Where is the data from?</h2>
-          <div class="where-is-the-data-from"> </div>
+          <div id="indicator-description"></div>
 
           <div class="links">
               Links:
@@ -330,7 +298,7 @@ footer.content-info {color:#8C8989;background:#282a2b;padding: 18px 10px 18px;}f
 
 
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
-    <script src="../GoogleDataLoader.js"></script>
+    <script src="../CartoDbDataset.js"></script>
     <script src="descriptions.js"></script>
 
 </body>

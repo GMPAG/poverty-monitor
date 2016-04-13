@@ -1,71 +1,188 @@
 // all-descriptions.js
 // Show a summary of all indicators on a single page.
 
-function inflatePage( all_data ) {
-    console.debug( all_data );
-    var descriptions = all_data['descriptions'];
-    var la_data = all_data['local_authority_data'];
+// CONSTANTS
+//
 
-    if ( descriptions ) {
+ROW_KEY_COLUMN_NAME = 'varname';
 
-        console.debug( descriptions );
+NAME_ROW_KEY = 'Indicator';
+SECTION_ROW_KEY = 'Position in the list of indicators';
+DESCRIPTION_ROW_KEY = 'What is this indicator?';
 
-        jQuery( '#all-descriptions' ).append( jQuery( '<ul>' ) );
+// A HACK to get sections in the order that Ruth Lupton wants them.
+// Replace this with some kind of ordering metadata in the canonical
+// spreadsheet.
+HACK_SECTION_ORDER = [
+    'Indices of Multiple Deprivation (IMD)',
+    'Child Poverty',
+    'Unemployment',
+    'Claims for Other Out of Work Benefits',
+    'Claims for In-Work Benefits',
+    'Housing Unaffordability',
+    'Other Indicators'
+];
+//
+////////////
 
-        descriptions[0].data.forEach( function ( name, index ) {
-            var summary = descriptions[1].data[index];
-            var short_label =
-                la_data.getColumnByProperty( 'descriptionPageTitle', name ).shortLabel;
 
-            jQuery( '#all-descriptions  > ul' ).append(
-                jQuery( '<li>' ).append(
-                    jQuery( '<h3>' ).text( name ),
-                    jQuery( '<p>' ).text( summary ),
-                    jQuery( '<div>' ).append(
-                        jQuery( '<span>' ).text( 'See: ' ),
-                        jQuery( '<ul>' ).append(
-                            jQuery( '<li>' ).append(
-                                jQuery( '<a href="/poverty-monitor/indicator-descriptions/?name=' + encodeURIComponent(name) + '">' ).text( 'Full description' )
-                            ),
-                            jQuery( '<li>' ).append(
-                                jQuery( '<a href="/poverty-monitor/indicator-visualisations/?level=local-authority-and-region&measure=' + encodeURIComponent(short_label) + '">' ).text( 'Local authority level information' )
-                            )
-                        )
-                    )
-                )
-            );
-        } );
+// Not all platforms implement a javascript console.
+if ( ! console ) {
+    console = {
+        debug:function(){},
+        warn:function(){},
+        error:function(){}
+    };
+}
+
+
+
+function inflatePage( indicator_metadata ) {
+//     console.debug( indicator_metadata );
+
+    var row_keys = indicator_metadata.column( ROW_KEY_COLUMN_NAME );
+    var value = function(column, row_key) {
+        return column[row_keys.indexOf(row_key)];
     }
-    else {
-        jQuery( '#all-descriptions' ).append(
-            jQuery( '<p>' ).text(
-                'We are sorry. Something went wrong. We were unable to load the descriptions of the poverty index indicators.'
+    var summary = function(key, col) {
+        var result = {
+            key: key,
+            name: value(col,NAME_ROW_KEY),
+            description: value(col,DESCRIPTION_ROW_KEY)
+        }
+//         console.debug( result );
+        return result;
+    }
+
+    // Build the shallow tree of sections and summary data.
+    var summaries = {}
+    indicator_metadata.userDefinedColumnNames().forEach( function(key) {
+
+        if ( key == ROW_KEY_COLUMN_NAME ) {
+            return;
+        }
+
+        var col = indicator_metadata.column(key);
+        if ( ! col ) {
+            console.error( "Failed to retrieve column " + key );
+            return;
+        }
+
+        var section = value(col,SECTION_ROW_KEY);
+
+        if ( section == '' ) {
+            var name = value(col,NAME_ROW_KEY);
+            summaries[name] = summary(key,col);
+        } else {
+            if ( ! summaries.hasOwnProperty(section) ) {
+                summaries[section] = [];
+            }
+            summaries[section].push( summary(key, col) );
+        }
+    });
+
+    // Append a section to the list of sections.
+    var addSection = function(name) {
+        jQuery( '#all-descriptions  > ul' ).append(
+            jQuery( '<li>' ).append(
+                jQuery( '<h2>' ).text( name ),
+                jQuery( '<ul>' )
             )
         );
     }
-}
 
-function getCallbackCreator( number_of_data_callbacks, final_callback ) {
+    // Append a summary to the final section.
+    var addSummary = function(summary, with_title) {
 
-    var all_data = {}
+        jQuery( '#all-descriptions > ul > li > ul' ).last().append(
+            jQuery('<li>')
+        );
 
-    return function ( data_key ) {
-
-        return function( data_value ) {
-            all_data[data_key] = data_value;
-
-            if ( Object.keys(all_data).length == number_of_data_callbacks ) {
-                final_callback( all_data );
-            }
+        if ( with_title ) {
+            jQuery( '#all-descriptions > ul > li > ul > li' ).last().append(
+                jQuery( '<h3>' ).text( summary.name )
+            );
         }
+
+        jQuery( '#all-descriptions > ul > li > ul > li' ).last().append(
+            jQuery( '<p>' ).text( summary.description ),
+            jQuery( '<div>' ).append(
+                jQuery( '<span>' ).text( 'See: ' ),
+                jQuery( '<ul>' ).append(
+                    jQuery( '<li>' ).append(
+                        jQuery( '<a href="/poverty-monitor/indicator-descriptions/?name=' + encodeURIComponent(summary.name) + '">' ).text( 'About this indicator' )
+                    ),
+                    jQuery( '<li>' ).append(
+                        jQuery( '<a href="/poverty-monitor/indicator-visualisations/?level=local-authority-and-region&measure=' + encodeURIComponent(summary.name) + '">' ).text( 'What the data shows' )
+                    )
+                )
+            )
+        );
     }
+
+
+    // Are the section names the ones that we already know about?
+    // (See the CONSTANTS block at the top of this file.)
+    var section_names = Object.keys(summaries);
+
+    function isIdenticalArrayContents( a1, a2 ) {
+
+        if ( a1.length != a2.length ) {
+            return false;
+        }
+
+        // Make sure that none of the values in a1 are missing from a2.
+        // WEAKNESS: Fails if a unique value in a2 occurs multiple times in a1.
+        // ASSUMPTION: No values will occur multiple times in either array.
+        var isMissingSection = a1.some( function( a1val ) {
+            return ( -1 == a2.indexOf(a1val) );
+        });
+
+        return ! isMissingSection;
+    }
+
+    if ( isIdenticalArrayContents( section_names, HACK_SECTION_ORDER ) ) {
+        // Only the section names we are already aware of are present, so use
+        // our HACKED in order for sections.
+        section_names = HACK_SECTION_ORDER;
+    } else {
+        console.warn(
+            'The section names as defined by row key "' + SECTION_ROW_KEY +
+            '" have changed, so we are not imposing any kind of order on the sections.'
+            + 'This is probably not what you want.' );
+        console.warn( [section_names, HACK_SECTION_ORDER ] );
+    }
+
+    // Start the markup for the summary list.
+    jQuery( '#all-descriptions' ).append( jQuery( '<ul>' ) );
+
+    section_names.forEach( function ( section_name ) {
+
+        addSection( section_name );
+
+        var section = summaries[section_name];
+        if ( Array.isArray( section ) ){
+            section.forEach( function( summary ) { addSummary( summary, true ); } );
+        } else {
+            addSummary( section, false );
+        }
+    });
+
+    //         indicator_metadata.forEach( function ( name, index ) {
+    //             var summary = descriptions[1].data[index];
+    //             var short_label =
+    //                 la_data.getColumnByProperty( 'descriptionPageTitle', name ).shortLabel;
+    //         } );
+    //     }
+    //     else {
+    //         jQuery( '#all-descriptions' ).append(
+    //             jQuery( '<p>' ).text(
+    //                 'We are sorry. Something went wrong. We were unable to load the descriptions of the poverty index indicators.'
+    //             )
+    //         );
+    //     }
+
 }
 
-
-var getCallback = getCallbackCreator( 2, inflatePage );
-
-GoogleDataLoader.gimme(
-    "https://docs.google.com/spreadsheets/d/1_3gRhw7tOwXxYvAjYtqZATL6xfaET9mAFUQpNt_OegQ/gviz/tq",
-    getCallback( 'descriptions' )
-);
-CartoDbDataLoader.gimme( 'localauthoritymultiindicator_rg', 'areaname', getCallback( 'local_authority_data' ) );
+// ...and go!
+loadCartoDbDataset( 'indicator_metadata_2016_04_05', inflatePage );

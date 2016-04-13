@@ -52,65 +52,6 @@ footer.content-info {color:#8C8989;background:#282a2b;padding: 18px 10px 18px;}f
     <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v3/3.13/themes/css/cartodb.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.7/css/jquery.dataTables.min.css" />
 
-    <style>
-
-    #measure-name {
-        margin-top: 40px;
-    }
-
-    #description-link p {
-        margin-bottom: 0;
-    }
-
-/*
-    #measure-selector ul {
-        display: block;
-        text-align: center;
-        background-color: #eee;
-    }
-    #measure-selector .second-level .hidden {
-        display: none;
-    }
-    #measure-selector .active {
-        background-color: #ddd;
-    }
-    #measure-selector li {
-        list-style: none;
-        display: inline-block;
-        padding: 0 14px;
-    }
- */
-     #measure-selector li a {
-        cursor: pointer;
-    }
-
-    #chart-row {
-        margin-top: 20px;
-        margin-bottom: 2%;
-    }
-
-    #chart .c3-axis-x-label {
-        font-size: 13px;
-    }
-
-    #map {
-        height: 600px;
-
-        /* Can't set a min-height (rather than a height) for the map.
-           When I tried this, the map overflowed and covered the footer.
-        min-height: 600px;*/
-    }
-
-    #table .region td {
-        background-color: #eef;
-    }
-
-    #wrap .links {
-        margin-top: 40px;
-    }
-
-    </style>
-
 </head>
 <body class="page page-id-960 page-child parent-pageid-538 page-template page-template-template-custom-php child-poverty">
 
@@ -176,57 +117,56 @@ footer.content-info {color:#8C8989;background:#282a2b;padding: 18px 10px 18px;}f
                       GMPAG
                   </a>
               </li>
-              <li id="leaf-breadcrumb" class="active">Poverty monitor indicator visualisations</li>
+              <li id="leaf-breadcrumb" class="active"></li>
           </ul>
       </div>
 
 
 
-      <div id="wrap" class="wrap main-section container" role="document">
+<div id="landing-page" class="wrap main-section container" role="document">
 
-          <h1 id="page-title">Poverty indicators</h1>
+    <h1>Greater Manchester Poverty Monitor</h1>
 
-          <div id="measure-selector">
+    <p>
+        This Poverty Monitor is designed to help people concerned about poverty in Greater Manchester
+        to monitor the level of poverty and its distribution across the city.
+        It has been developed jointly by Greater Manchester Poverty Action and the University of Manchester.
+    </p>
 
-          <div class="btn-group">
-<!--               <button class="btn dropdown-toggle" data-toggle="dropdown" href="#">Groups experiencing poverty <span class="caret"></span> -->
-              <button class="btn dropdown-toggle" data-toggle="dropdown">Choose indicator... <span class="caret"></span>
-              </button>
-                  <ul class="dropdown-menu poverty-groups">
-                      <!-- dropdown menu links -->
-                  </ul>
-          </div>
+    <div class="featured highlighted">
+        <h2>Quick links</h2>
+        <ul>
+            <li><a href="/poverty-monitor/indicator-descriptions/all">About the indicators</a></li>
+            <li><a href="/poverty-monitor/indicator-visualisations/?level=local-authority">What the data shows</a></li>
+            <li><a href="/poverty-in-gm-november-2014/">The November 2014 Poverty Monitor Report</a></li>
+        </ul>
+    </div>
 
-<!--           <div class="btn-group">
-              <button class="btn dropdown-toggle" data-toggle="dropdown" href="#">Causes and consquences of poverty <span class="caret"></span>
-              </button>
+    <p>
+        Households in the UK are officially recognised as being in poverty if their incomes are less than 60%
+        of the median (middle) income, adjusted for household size.  These figures are published annually by
+        the government.  The Institute for Fiscal Studies produces forecasts for future years.   But these data
+        are not available below regional level.   A three year average for 2011/12 to 2013/14 showed that
+        showed that 1.5 million (21%) of the population of the North West, and 30% of children were in
+        poverty, after housing costs.
+    </p>
+    <p>To piece together a picture of poverty at a local level, we have to rely on a range of different data.
+        Many of these are statistics about people claiming various means-tested benefits.  We can also look
+        at some of the causes of poverty, such as unemployment and low pay, as well other indicators of the
+        extent to which people are struggling on low incomes, such as levels of fuel poverty.
+    </p>
+    <p>
+        The indicators presented here are shown in graph form and mapped down the lowest level possible,
+        and for the latest date (usually 2014 or 2015).  We also show the distribution of multiple deprivation,
+        using the English Indices of Deprivation 2015.
+    </p>
+    <p>
+        During 2016, we will be redesigning the poverty monitor to take account of the many changes in
+        benefits currently occurring, and adding trend data and a wider range of indicators.  We welcome
+        your suggestions.
+    </p>
 
-                  <ul class="dropdown-menu poverty-causes">
-                  </ul>
-          </div> -->
-
-          </div>
-
-          <h2 id="measure-name"></h2>
-
-          <div id="description-link"></div>
-
-          <div class="row" id="chart-row">
-              <!-- C3 Charts misbehaves and spills out to the right. Counter
-                   this behaviour by keeping a blank column on the right.    -->
-              <div class="col-md-11 col-sm-11 col-xs-11" id="chart"></div>
-          </div>
-          <div class="row">
-              <div class="col-md-6" id="map"></div>
-              <div class="col-md-6" id="table"></div>
-          </div>
-
-          <div class="links">
-              Links:
-              <ul id="list-of-links">
-              </ul>
-          </div>
-      </div>
+</div>
 
 
 
@@ -387,14 +327,6 @@ footer.content-info {color:#8C8989;background:#282a2b;padding: 18px 10px 18px;}f
 
 
 
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.10/c3.js"></script>
-    <script src="http://libs.cartocdn.com/cartodb.js/v3/3.13/cartodb.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.10.7/js/jquery.dataTables.min.js"></script>
-    <script src="../CartoDbDataset.js"></script>
-    <script src="../PovmonDataset.js"></script>
-    <script src="visualisations.js"></script>
 
 </body>
 </html>

@@ -1,31 +1,54 @@
-var columnsList = null;
-var x_axis_name = 'areaname';
+var povmon_dataset = null;
+
 var chart = null;
 var map = null;
 var table = null;
-var dataset_name = null;
-var page_ready_for_measure_selection = false;
 
-function createChart( columns )
+var x_axis_name = 'geo_name';
+
+var detail_level = '';
+
+// Not all platforms implement a javascript console.
+if ( ! console ) {
+    console = {
+        debug:function(){},
+        warn:function(){},
+        error:function(){}
+    };
+}
+
+function createChart( dataset )
 {
-    function getChartColumn( column ) {
-        var result = column.data.slice();
-        if ( column.x_axis ) {
-            result.unshift( x_axis_name );
-        }
-        else {
-            result.unshift( column.label );
-        }
-        return result;
-    }
+    var x_axis_id = 'geoname';
+    var x_axis_title = 'Local authority';
+    var chart_detail_level = DetailLevel.LA;
 
     function getChartColumns() {
-        return columns.map( function ( col ) {
-            return getChartColumn( col );
-        } );
-    }
+        var keys = dataset.latestIndicatorKeys( detail_level );
+        var indicators = keys.map( function(key) {
+            return dataset.indicator(key, chart_detail_level);
+        });
 
-    var chart_columns = getChartColumns();
+        var columns = indicators.map( function(indicator) {
+            return [ indicator.title ].concat(
+                indicator.data.filter(function (value, index) {
+//                     return ! geoCodeInRange( DetailLevel.BIG, indicator.geoCodes[index] );
+                    return true; // Including all areas. Not refactoring yet.
+                })
+            );
+        });
+
+        // Add the geographical names as the first column.
+        columns.unshift( [ x_axis_id ].concat(
+            indicators[0].geoNames.filter(function (name, index) {
+//                     return ! geoCodeInRange( DetailLevel.BIG, indicators[0].geoCodes[index] );
+                return true; // Including all areas. Not refactoring yet.
+            })
+        ));
+
+        return columns;
+    }
+    var columns = getChartColumns();
 
     chart = c3.generate( {
         bindto: '#chart',
@@ -33,17 +56,17 @@ function createChart( columns )
             height: 400
         },
         data: {
-            x: x_axis_name,
-            columns: chart_columns,
+            x: x_axis_id,
+            columns: columns,
             type: 'bar',
-            // Hide all columns except the first.
-            hide: chart_columns.slice(2).map( function(col) {return col[0];} )
+            // Hide all columns except x and first data column.
+            hide: columns.slice(2).map( function(col) {return col[0];} )
         },
         axis: {
             x: {
                 type: 'category',
                 label: {
-                    text: 'Local Authority',
+                    text: x_axis_title,
                     position: 'outer-center'
                 }
                 ,
@@ -71,10 +94,13 @@ function createChart( columns )
     } );
 }
 
-function getMapSql( column )
+function getMapSql( indicator )
 {
-    return 'SELECT cartodb_id, ' + x_axis_name + ', the_geom, the_geom_webmercator, '
-    + column.name + " as indicator, '" + column.unitsLabel + "'as units FROM " + dataset_name + '_withboundaries';
+    var sql = 'SELECT cartodb_id, geo_name, the_geom, the_geom_webmercator, '
+    + indicator.key + " as indicator, '" + indicator.unitsLabel + "' as units FROM "
+    + indicator.datasetName + '_with_' + indicator.detailLevel + '_boundaries WHERE the_geom IS NOT NULL';
+    console.debug(sql);
+    return sql;
 }
 
 function getColourRampCss( colour, value )
@@ -85,7 +111,7 @@ polygon-fill: ' + colour + ';  \n\
 }';
 }
 
-function getMapCss( min_val, max_val, show_labels )
+function getMapCss( min, max, show_labels )
 {
     var result = "\n\
 /** choropleth visualization */   \n\
@@ -106,9 +132,9 @@ text-name: [" + x_axis_name + "];   \n\
 text-face-name: 'DejaVu Sans Book';   \n\
 text-size: 14;   \n\
 text-label-position-tolerance: 10;   \n\
-text-fill: #333333;   \n\
-text-halo-fill: #ffdd88;   \n\
-text-halo-radius: 2;   \n\
+text-fill: #555;   \n\
+text-halo-fill: #fff;   \n\
+text-halo-radius: 1.5;   \n\
 text-dy: -10;   \n\
 text-allow-overlap: true;   \n\
 text-placement: point;   \n\
@@ -120,33 +146,50 @@ text-placement-type: simple;   \n\
     var colours =
         [ '#B10026', '#E31A1C', '#FC4E2A', '#FD8D3C', '#FEB24C', '#FED976', '#FFFFB2' ];
 
-    var val = max_val;
-    var increment = ( max_val - min_val ) / colours.length;
+    var getSteps = function( min, max, num_steps ) {
+        var result = []
+        for ( var v = max, i = 0; i < num_steps; i++, v -= (max-min)/num_steps ) {
+            result.push(v);
+        }
+        return result;
+    }
 
-    colours.forEach( function ( colour ) {
-        result += getColourRampCss( colour, val );
-        val -= increment;
+    var vals = getSteps( min, max, colours.length )
+
+    colours.forEach( function ( colour, index ) {
+        var val = vals[index];
+        var colourCSS = getColourRampCss( colour, val );
+        result += colourCSS;
     } );
 
     return result;
 }
 
-function updateMapForMeasure( column )
+function updateMapForMeasure( indicator )
 {
-    var show_labels = column.data.length < 15 ? true : false;
+    var show_labels = indicator.detailLevel == DetailLevel.LA;
 
-    map.getLayers()[1].getSubLayers()[0].setSQL( getMapSql(column) );
-    map.getLayers()[1].getSubLayers()[0].setCartoCSS( getMapCss(column.min(), column.max(), show_labels) );
+    map.getLayers()[1].getSubLayers()[0].setSQL( getMapSql(indicator) );
 
-    jQuery( '.cartodb-legend-stack .min' ).text( column.min()+column.unitsLabel );
-    jQuery( '.cartodb-legend-stack .max' ).text( column.max()+column.unitsLabel );
+    // Remove big things from the data. They will not be shown on the map and
+    // should not affect the chloropleth.
+    var data = indicator.data.filter( function(val, index) {
+        return ! geoCodeInRange( DetailLevel.BIG, indicator.geoCodes[index] );
+    });
+    var min = Math.min.apply(null, data);
+    var max = Math.max.apply(null, data);
+
+    map.getLayers()[1].getSubLayers()[0].setCartoCSS( getMapCss(min, max, show_labels) );
+
+    jQuery( '.cartodb-legend-stack .min' ).text( min + indicator.unitsLabel );
+    jQuery( '.cartodb-legend-stack .max' ).text( max + indicator.unitsLabel );
 }
 
-function updateChartForMeasure( column )
+function updateChartForMeasure( indicator )
 {
     chart.hide();
-    chart.axis.labels( { y: column.unitsLabel } );
-    chart.show( column.label );
+    chart.axis.labels( { y: indicator.unitsLabel } );
+    chart.show( indicator.title );
 }
 
 //     function selectCategory( category )
@@ -158,28 +201,28 @@ function updateChartForMeasure( column )
 //         jQuery( '#measure-selector .second-level .' + category ).removeClass( 'hidden' );
 //     }
 
-function updateSelectorForMeasure( column )
+function updateSelectorForMeasure( indicator )
 {
     jQuery( '#measure-selector li' ).removeClass( 'active' );
-    jQuery( '#measure-selector li[measure="' + column.name + '"]' ).addClass( 'active' );
+    jQuery( '#measure-selector li[measure="' + indicator.name + '"]' ).addClass( 'active' );
 }
 
-function selectMeasure( column )
+function selectIndicator( indicator )
 {
-    jQuery( '#measure-name' ).text( column.label );
+    jQuery( '#measure-name' ).text( indicator.title );
 
     jQuery( '#description-link p' ).remove();
     jQuery( '#description-link' ).append(
-        '<p>Read an <a href="/poverty-monitor/indicator-descriptions/?name='
-        + encodeURIComponent(column.descriptionPageTitle)
-        + '">explanation of this indicator</a>.</p>'  );
+        '<p><a href="/poverty-monitor/indicator-descriptions/?name='
+        + encodeURIComponent(indicator.title)
+        + '">About this indicator</a>.</p>'  );
 
-    updateSelectorForMeasure( column );
+    updateSelectorForMeasure( indicator );
     if ( chart ) {
-        updateChartForMeasure( column );
+        updateChartForMeasure( indicator );
     }
-    updateMapForMeasure( column );
-    drawTable( columnsList.getColumnByName( x_axis_name ), column );
+    updateMapForMeasure( indicator );
+    drawTable( indicator );
 }
 
 //     function onCategoryClicked(e)
@@ -189,36 +232,34 @@ function selectMeasure( column )
 
 function onMeasureClicked(e)
 {
-    selectMeasure(
-        columnsList.getColumnByName(
-            jQuery(e.currentTarget).attr('measure') ) );
+    selectIndicator(
+        povmon_dataset.indicator(
+            jQuery(e.currentTarget).attr('measure'), detail_level ) );
 }
 
-function createSelector( columns )
+function createSelector( dataset )
 {
-    columns.filter( function ( column ) {
-        return column.y_axis;
-    } ).forEach( function (column)
+    dataset.latestIndicatorKeys(detail_level).forEach( function (key)
                 {
                     //             jQuery( '#measure-selector .top-level li' ).click( onCategoryClicked );
 
-                    var li_class = 'poverty-' + column.category;
+//                     var li_class = 'poverty-' + dataset.getIndicatorCategory(key);
 
                     //             jQuery( '#measure-selector ul.' + li_class + 's' )
                     jQuery( '#measure-selector ul' )
                     .append(
                         jQuery('<li>')
-                        .attr( 'measure', column.name )
+                        .attr( 'measure', key )
                         .click( onMeasureClicked )
-                        .addClass( li_class )
+//                         .addClass( li_class )
                         .append(
-                            jQuery( '<a>' + column.shortLabel + '</a>' )
+                            jQuery( '<a>' + dataset.getMenuItemLabel(key) + '</a>' )
                         )
                     );
                 } );
 }
 
-function drawTable ( areanames, column )
+function drawTable ( indicator )
 {
     if ( table ) {
         // This fn is in the API docs but console says it does not exist.
@@ -231,26 +272,30 @@ function drawTable ( areanames, column )
 
     var is_displayable = function(x) { return x!=='' && x!==null; };
 
+//     var debug_countdown = 10;
+
     var config = {
-        data : areanames.data.map( function ( areaname, index ) {
-            return [
-                areaname,
-                // column.data[index] ? column.data[index]+column.unitsLabel : ''
-                is_displayable(column.data[index]) ? column.data[index]+column.unitsLabel : ''
-            ];
+        data : indicator.geoNames.map( function ( geoname, index ) {
+
+            var result = [ geoname, indicator.data[index] ];
+//             if ( debug_countdown > 0 ) {
+//                 console.debug( result );
+//                 debug_countdown -= 1;
+//             }
+            return result;
         } ),
         columns : [
-            { title : "Local authority" },
-            { title : column.label }
+            { title : "Area" },
+            { title : indicator.title }
         ],
         order : [[ 1, "desc" ]]
     };
 
-    if ( column.data.length <= 20 ) {
+    if ( indicator.data.length <= 20 ) {
         config.paging = false;                   // Turn off paging
         config.info = false;                     // Turn off paging info
         config.bFilter = false;                  // Turn off search
-        config.pageLength = column.data.length;  // Remove empty rows
+        config.pageLength = indicator.data.length;  // Remove empty rows
 
         // Colour the background of wider regional rows differently.
         config.rowCallback = function( row, data, index ) {
@@ -269,47 +314,61 @@ function drawTable ( areanames, column )
 // Once the various page elements have been created, set the initial measure
 // to be viewed. This may be in the URL. If not, choose a default.
 //
-function setInitialMeasure() {
+function setInitialIndicator() {
 
     // Does the URL indicate a measure to be shown?
-    var measure_name = getParameterFromQueryString( 'measure' );
-    if ( measure_name ) {
-        var column = columnsList.getColumnByProperty( 'shortLabel', measure_name );
-        if ( column ) {
-            selectMeasure( column );
-            return;
+    var indicator_name = getParameterFromQueryString( 'measure' );
+    if ( indicator_name ) {
+
+        // TO DO:
+        // Currently we are expecting an iteration key in the query string,
+        // BUT we are more likely to get an indicator key or an indicator
+        // name. We need to add a fn to the PovmonDataset to obtain the
+        // latest iteration of a given indicator.
+
+        var iteration_key = povmon_dataset.getLatestIndicatorKeyFromName( indicator_name, detail_level );
+        if ( iteration_key ) {
+            var indicator = povmon_dataset.indicator( iteration_key, detail_level );
+            if ( indicator ) {
+                console.debug( ["Initialising with indicator found from query string", iteration_key, indicator] );
+                selectIndicator( indicator );
+                return;
+            }
         }
     }
 
     // No measure indicated by URL. Use default.
-    selectMeasure( columnsList[1]);
+    console.debug( 'No valid indicator ("' + iteration_key + '") found from query string' );
+//     console.debug( detail_level );
+    selectIndicator( povmon_dataset.indicator(
+        povmon_dataset.latestIndicatorKeys(detail_level)[0],
+        detail_level
+    ));
 }
 
-function makePageElements( columns )
+
+// HACK??? Asynchrous creation of map and other page elements means that
+// they could become ready in either order. Set initial indicator when
+// they are both complete.
+var callback_countdown = 2;
+function onCallbackComplete() {
+    callback_countdown--;
+    if ( callback_countdown == 0 ) {
+        setInitialIndicator();
+    }
+}
+
+function makePageElements( dataset )
 {
-    columnsList = columns;
-    columnsList.getColumnByName = function( column_name )
-    {
-        return this.getColumnByProperty( 'name', column_name );
+    povmon_dataset = dataset;
+
+    createSelector( dataset );
+
+    if ( detail_level == DetailLevel.LA ) {
+        createChart( dataset );
     }
 
-    createSelector( columns );
-
-    if ( columns[0].data.length < 15 ) {
-        createChart( columns );
-    }
-
-    // HACK: Asynchrous creation of map and other page elements means that
-    // they could become ready in either order. Initial measure selection
-    // only happens in one of two places, so a simple boolean flag is
-    // enough to tell us when to try selecting the initial measure.
-    if ( page_ready_for_measure_selection ) {
-        setInitialMeasure();
-        //             selectCategory( 'poverty-' + columns[1].category + 's' );
-    }
-    else {
-        page_ready_for_measure_selection = true;
-    }
+    onCallbackComplete();
 }
 
 function createMap ( mapId )
@@ -334,17 +393,7 @@ function createMap ( mapId )
             vis.getNativeMap().dragging.disable();
         }
 
-        // HACK: Asynchrous creation of map and other page elements means that
-        // they could become ready in either order. Initial measure selection
-        // only happens in one of two places, so a simple boolean flag is
-        // enough to tell us when to try selecting the initial measure.
-        if ( page_ready_for_measure_selection ) {
-            setInitialMeasure();
-            //                 selectCategory( 'poverty-' + columnsList[1].category + 's' );
-        }
-        else {
-            page_ready_for_measure_selection = true;
-        }
+        onCallbackComplete();
     } );
 }
 
@@ -359,40 +408,34 @@ function getParameterFromQueryString(name) {
     return results === null ? null : decodeURIComponent(results[1].replace(/\+/g, " "));
 }
 
+function loadData() {
+    loadPovmonDataset(
+        ['indicators_geo2001_2016_04_05','indicators_geo2011_2016_04_05'],
+        'indicator_metadata_2016_04_05',
+        'iteration_metadata_2016_04_05',
+        makePageElements
+    );
+}
 
 // And go...
 
 switch ( getParameterFromQueryString( 'level' ) )
 {
     case 'local-authority':
-        dataset_name = 'localauthoritymultiindicator';
-        CartoDbDataLoader.gimme( dataset_name, x_axis_name, makePageElements );
-        jQuery( '#page-title' ).text( 'Local authorities' );
-        createMap( '6d084fac-ef4a-11e4-96e6-0e0c41326911' );
-        jQuery('#list-of-links').append('<li>You can see visualisations of some of these indicators on a <a href="/poverty-monitor/indicator-visualisations?level=lsoa">much smaller scale</a>. (The smaller areas are called "Lower Super Output Areas".)</li>');
-        break;
     case 'local-authority-and-region':
-        dataset_name = 'localauthoritymultiindicator_rg';
-        CartoDbDataLoader.gimme( dataset_name, x_axis_name, makePageElements );
-        jQuery( '#page-title' ).text( 'Local authorities' );
-        createMap( '6d084fac-ef4a-11e4-96e6-0e0c41326911' );
-        jQuery('#list-of-links').append('<li>You can see visualisations of some of these indicators on a <a href="/poverty-monitor/indicator-visualisations?level=lsoa">much smaller scale</a>. (The smaller areas are called "Lower Super Output Areas".)</li>');
-        break;
     case 'region':
-        dataset_name = 'regionalmultiindicator';
-        CartoDbDataLoader.gimme( dataset_name, x_axis_name, makePageElements );
-        jQuery( '#page-title' ).text( 'Regions' );
-        jQuery('#map').remove();
-        jQuery('#list-of-links').append('<li>You can see visualisations of all indicators at the <a href="/poverty-monitor/indicator-visualisations?level=local-authority-and-region">local authority level</a>.</li>');
+        detail_level = DetailLevel.LA;
+        jQuery( '#page-title' ).text( 'Local authorities' );
         jQuery('#list-of-links').append('<li>You can see visualisations of some of these indicators on a <a href="/poverty-monitor/indicator-visualisations?level=lsoa">much smaller scale</a>. (The smaller areas are called "Lower Super Output Areas".)</li>');
+        createMap( '60a322fc-fcad-11e5-8cd2-0e5db1731f59' );
+        loadData();
         break;
     case 'lsoa':
-        dataset_name = 'lsoamultiindicator';
-        CartoDbDataLoader.gimme( dataset_name, x_axis_name, makePageElements );
+        detail_level = DetailLevel.LSOA;
         jQuery( '#page-title' ).text( 'Lower layer super output areas' );
-        //             jQuery( '#measure-selector .btn-group' )[1].remove();
-        createMap( 'a5053f5c-05f0-11e5-822d-0e4fddd5de28' );
-        jQuery('#list-of-links').append('<li>You can see visualisations of all indicators at the <a href="/poverty-monitor/indicator-visualisations?level=local-authority-and-region">local authority level</a>.</li>');
+        jQuery('#list-of-links').append('<li>You can see visualisations of most indicators at the <a href="/poverty-monitor/indicator-visualisations?level=local-authority-and-region">local authority level</a>.</li>');
+        createMap( 'b7ee5b22-fff9-11e5-b060-0e3ff518bd15' );
+        loadData();
         break;
     default:
         jQuery('#map').remove();
@@ -400,3 +443,5 @@ switch ( getParameterFromQueryString( 'level' ) )
         jQuery('#wrap .links').remove();
         jQuery('#page-title' ).text( 'Indicator level not found' );
 }
+
+
