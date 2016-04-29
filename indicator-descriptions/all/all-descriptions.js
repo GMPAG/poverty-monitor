@@ -77,7 +77,6 @@ function inflatePage( indicator_metadata ) {
         }
 
         var vis_href;
-        console.debug(summary.key);
         if ( summary.key == HACK_CHILD_POVERTY_KEY ) {
             vis_href = '/poverty-monitor/child-poverty';
         } else {
