@@ -348,6 +348,11 @@ function selectIndicator( indicator )
             + encodeURIComponent(indicator.title)
             + '">About this indicator</a>" page.</p>'  );
 
+    jQuery( '#graph-comment' ).empty();
+    if ( indicator.chartComment ) {
+        jQuery( '#graph-comment' ).append( paragraphise(indicator.chartComment) );
+    }
+
     updateSelectorForIndicator( indicator );
     updateMapForIndicator( indicator );
     updateLinksForIndicator( indicator );

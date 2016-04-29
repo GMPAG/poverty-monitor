@@ -327,6 +327,9 @@ function PovmonDataset( datasets, indicator_metadata, iteration_metadata ) {
         result.visualisationIntroText = indicatorProperty(
             indicator_key, "VIS_PAGE_INTRO_"+detail_level.toUpperCase()) || "";
 
+        result.chartComment =
+            indicatorProperty(indicator_key, "CHART_COMMENT_"+detail_level.toUpperCase());
+
         result.chartYAxisLabel =
             indicatorProperty(indicator_key, "Y_AXIS_LABEL_"+detail_level.toUpperCase());
 
